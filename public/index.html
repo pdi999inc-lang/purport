@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PurPort — Is this deal real?</title>
+<style>
+:root{color-scheme:light;}
+*{box-sizing:border-box;}
+body{margin:0;background:#f6f7f9;color:#1a1d21;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45;}
+.wrap{max-width:720px;margin:0 auto;padding:22px 16px 70px;}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:2px;}
+.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#5b3df5,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:19px;}
+h1{font-size:21px;margin:0;letter-spacing:-.3px;}
+.tag{color:#5f6873;font-size:13px;margin:0 0 18px;}
+.card{background:#fff;border:1px solid #e6e8ec;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+.drop{border:2px dashed #cdd2da;border-radius:12px;padding:26px;text-align:center;cursor:pointer;transition:.15s;}
+.drop:hover,.drop.over{border-color:#7c4dff;background:#faf9ff;}
+.drop p{margin:6px 0 0;color:#6b7480;font-size:13px;}
+.drop strong{color:#5b3df5;}
+#preview{max-width:100%;border-radius:10px;margin-top:12px;display:none;}
+button.analyze{width:100%;padding:13px;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#5b3df5,#7c4dff);color:#fff;margin-top:14px;}
+button.analyze:disabled{opacity:.55;cursor:default;}
+.muted{color:#6b7480;font-size:12.5px;}
+.spinner{display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:7px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.verdict{border-radius:12px;padding:16px;margin-bottom:14px;color:#fff;}
+.v-title{font-size:13px;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin:0 0 3px;}
+.v-score{font-size:34px;font-weight:800;margin:0;line-height:1;}
+.v-rec{margin:8px 0 0;font-size:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.stat{background:#f8f9fb;border:1px solid #eceef1;border-radius:10px;padding:12px;}
+.stat .k{font-size:11.5px;color:#6b7480;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.stat .val{font-size:19px;font-weight:750;margin-top:3px;}
+.flag{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:9px;margin-bottom:7px;font-size:13.5px;}
+.flag.red{background:#fdecec;color:#8a1c1c;}.flag.amber{background:#fff5e6;color:#8a5a00;}.flag.green{background:#e9f7ef;color:#1c6b3f;}
+.flag .ico{font-weight:800;}
+.comps{margin-top:14px;}.comps h3{font-size:13px;margin:0 0 8px;color:#39414b;}
+.comp{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-bottom:1px dashed #eceef1;}
+.comp a{color:#5b3df5;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.comp .p{font-weight:700;white-space:nowrap;}
+.err{background:#fdecec;color:#8a1c1c;padding:11px;border-radius:9px;font-size:13px;margin-top:10px;}
+.confirm{background:#fff5e6;border:1px solid #ffe2b0;border-radius:10px;padding:13px;margin-top:12px;}
+.confirm label{font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;}
+.confirm input{width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;}
+.disc{font-size:11px;color:#98a0aa;margin-top:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="logo">P</div><h1>PurPort</h1></div>
+  <p class="tag">Upload a screenshot of a marketplace listing. We'll tell you what it's worth new & used — and whether it looks like a scam.</p>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <div style="font-size:26px">📷</div>
+      <p><strong>Tap to upload</strong> or drop a screenshot here</p>
+      <p class="muted">Facebook Marketplace, Craigslist, eBay, OfferUp…</p>
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+    <img id="preview" alt="preview">
+    <button class="analyze" id="go" disabled>Analyze deal</button>
+    <div id="err"></div>
+    <div id="confirmBox"></div>
+  </div>
+
+  <div id="result"></div>
+  <p class="disc">Prices pulled live from public marketplace listings; treated as a snapshot, not a guaranteed valuation. Product ID is AI-generated from your screenshot and may be wrong — confirm before trusting the verdict. Not financial advice. Always inspect in person and pay on pickup.</p>
+</div>
+
+<script>
+let fileData = null;
+const drop=document.getElementById('drop'), fileEl=document.getElementById('file'),
+      preview=document.getElementById('preview'), go=document.getElementById('go'),
+      errEl=document.getElementById('err'), result=document.getElementById('result'),
+      confirmBox=document.getElementById('confirmBox');
+
+drop.onclick=()=>fileEl.click();
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) setFile(ev.dataTransfer.files[0]); });
+fileEl.onchange=()=>{ if(fileEl.files[0]) setFile(fileEl.files[0]); };
+
+function setFile(f){
+  fileData=f; const url=URL.createObjectURL(f);
+  preview.src=url; preview.style.display='block'; go.disabled=false;
+  errEl.innerHTML=''; result.innerHTML=''; confirmBox.innerHTML='';
+}
+function money(n){ return n==null?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}); }
+
+async function analyze(extra){
+  go.disabled=true; go.innerHTML='<span class="spinner"></span>Reading screenshot & pricing…';
+  errEl.innerHTML='';
+  try{
+    const fd=new FormData();
+    if(fileData) fd.append('screenshot',fileData);
+    if(extra) for(const k in extra) fd.append(k,extra[k]);
+    const res=await fetch('/api/analyze',{method:'POST',body:fd});
+    const data=await res.json();
+    if(!res.ok){ throw new Error(data.error||'Analysis failed'); }
+    if(data.needsConfirmation){ renderConfirm(data.fields); return; }
+    renderResult(data);
+  }catch(e){ errEl.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
+  finally{ go.disabled=false; go.textContent='Analyze deal'; }
+}
+go.onclick=()=>analyze();
+
+function renderConfirm(f){
+  confirmBox.innerHTML=`<div class="confirm">
+    <strong>Low-confidence read — confirm before we price it.</strong>
+    <label>Product</label><input id="cProduct" value="${(f.product||'').replace(/"/g,'&quot;')}">
+    <label>Asking price ($)</label><input id="cAsking" type="number" value="${f.askingPrice??''}">
+    <button class="analyze" id="cGo" style="margin-top:12px">Confirm & analyze</button>
+  </div>`;
+  document.getElementById('cGo').onclick=()=>analyze({
+    confirmed:'1', product:document.getElementById('cProduct').value,
+    asking:document.getElementById('cAsking').value,
+    condition:f.sellerCondition||'', message:f.listingText||''
+  });
+}
+
+function renderResult(d){
+  confirmBox.innerHTML='';
+  const v=d.verdict, p=d.prices, f=d.fields;
+  const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
+  const comps=(p.comps||[]).map(c=>`<div class="comp"><a href="${c.url}" target="_blank" rel="noopener">${(c.title||'').slice(0,60)}</a><span class="p">${money(c.price)}</span></div>`).join('')||'<div class="muted">No comparable listings parsed.</div>';
+  const flags=(v.flags||[]).map(x=>`<div class="flag ${x.level}"><span class="ico">${x.level==='red'?'⚠':x.level==='green'?'✓':'•'}</span><span>${x.text}</span></div>`).join('');
+  const condLine = f.sellerCondition||f.photoCondition
+    ? `<div class="stat"><div class="k">Condition</div><div class="val" style="font-size:14px">Says: ${f.sellerCondition||'—'}<br><span class="muted" style="font-size:12px">Photo: ${f.photoCondition||'—'}</span></div></div>` : '';
+  result.innerHTML=`
+    <div class="verdict" style="background:${color}">
+      <p class="v-title">${v.headline} · ${f.product}</p>
+      <p class="v-score">${v.scamScore}% <span style="font-size:14px;font-weight:600;">scam probability</span></p>
+      <p class="v-rec">${v.recommendation}</p>
+    </div>
+    <div class="card">
+      <div class="grid2">
+        <div class="stat"><div class="k">Asking</div><div class="val">${money(f.askingPrice)}</div></div>
+        <div class="stat"><div class="k">Deal read</div><div class="val" style="font-size:15px">${v.dealBand}</div></div>
+        <div class="stat"><div class="k">New (retail)</div><div class="val">${money(p.newPrice)}</div></div>
+        <div class="stat"><div class="k">Used range</div><div class="val" style="font-size:15px">${money(p.usedLow)} – ${money(p.usedHigh)}<br><span class="muted" style="font-size:12px">median ${money(p.usedMedian)} · n=${p.usedSample}</span></div></div>
+        ${condLine}
+      </div>
+      <div style="margin-top:14px">${flags}</div>
+      <div class="comps"><h3>Live comparable listings</h3>${comps}</div>
+    </div>`;
+}
+</script>
+</body>
+</html>
