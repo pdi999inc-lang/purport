@@ -44,56 +44,155 @@ button.analyze:disabled{opacity:.55;cursor:default;}
 .confirm label{font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;}
 .confirm input{width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;}
 .disc{font-size:11px;color:#98a0aa;margin-top:16px;}
+.step{display:none;}
+.step.active{display:block;}
+.opt{background:#f8f9fb;border:1px solid #eceef1;border-radius:12px;padding:14px;margin-bottom:9px;cursor:pointer;transition:.12s;}
+.opt:hover{border-color:#7c4dff;background:#faf9ff;}
+.opt .ot{font-weight:700;font-size:14.5px;margin-bottom:2px;}
+.opt .od{font-size:12.5px;color:#6b7480;}
+.backlink{background:none;border:0;color:#6b7480;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;}
+.backlink:hover{color:#1a1d21;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="brand"><div class="logo">P</div><h1>PurPort</h1></div>
-  <p class="tag">Upload a screenshot of a marketplace listing. We'll tell you what it's worth new & used — and whether it looks like a scam.</p>
+  <p class="tag" id="tagline">What do you want us to check?</p>
 
-  <div class="card">
-    <div class="drop" id="drop">
-      <div style="font-size:26px">📷</div>
-      <p><strong>Tap to upload</strong> or drop a screenshot here</p>
-      <p class="muted">Facebook Marketplace, Craigslist, eBay, OfferUp…</p>
-      <input type="file" id="file" accept="image/*" hidden>
+  <div class="step active" id="step-what">
+    <div class="card">
+      <div class="opt" data-cat="listing" onclick="chooseCategory('listing')">
+        <div class="ot">🏠 A listing I'm looking at</div>
+        <div class="od">A rental, apartment, or item for sale</div>
+      </div>
+      <div class="opt" data-cat="conversation" onclick="chooseCategory('conversation')">
+        <div class="ot">💬 A conversation with a seller or landlord</div>
+        <div class="od">Messages about a listing you're interested in</div>
+      </div>
+      <div class="opt" data-cat="service" onclick="chooseCategory('service')">
+        <div class="ot">🛠️ Someone offering me a service</div>
+        <div class="od">A contractor, handyman, mover, or similar</div>
+      </div>
+      <div class="opt" data-cat="unsure" onclick="chooseCategory('unsure')">
+        <div class="ot">🤔 I'm not sure — just check it</div>
+        <div class="od">We'll scan for anything that looks off</div>
+      </div>
     </div>
-    <img id="preview" alt="preview">
-    <button class="analyze" id="go" disabled>Analyze deal</button>
-    <div id="err"></div>
-    <div id="confirmBox"></div>
   </div>
 
-  <div id="result"></div>
-  <p class="disc">Prices pulled live from public marketplace listings; treated as a snapshot, not a guaranteed valuation. Product ID is AI-generated from your screenshot and may be wrong — confirm before trusting the verdict. Not financial advice. Always inspect in person and pay on pickup.</p>
+  <div class="step" id="step-platform">
+    <button class="backlink" onclick="goToStep('what')">← Back</button>
+    <div class="card" id="platformCard"></div>
+  </div>
+
+  <div class="step" id="step-upload">
+    <button class="backlink" onclick="goToStep('platform')">← Back</button>
+    <div class="card">
+      <div class="drop" id="drop">
+        <div style="font-size:26px">📷</div>
+        <p><strong>Tap to upload</strong> or drop a screenshot here</p>
+        <p class="muted" id="dropHint">Facebook Marketplace, Craigslist, eBay, OfferUp…</p>
+        <input type="file" id="file" accept="image/*" hidden>
+      </div>
+      <img id="preview" alt="preview">
+      <button class="analyze" id="go" disabled>Analyze</button>
+      <div id="err"></div>
+      <div id="confirmBox"></div>
+    </div>
+    <div id="result"></div>
+    <p class="disc">Prices pulled live from public marketplace listings; treated as a snapshot, not a guaranteed valuation. Product ID is AI-generated from your screenshot and may be wrong — confirm before trusting the verdict. Not financial advice. Always inspect in person and pay on pickup.</p>
+  </div>
 </div>
 
 <script>
+let selectedCategory = null;
+let selectedPlatform = null;
+
+const platformOptions = {
+  listing: [
+    { label: "Zillow / rental site", hint: "rental listing screenshot" },
+    { label: "Facebook Marketplace", hint: "marketplace listing screenshot" },
+    { label: "Craigslist", hint: "Craigslist listing screenshot" },
+    { label: "Nextdoor", hint: "Nextdoor listing screenshot" },
+    { label: "Somewhere else", hint: "listing screenshot" }
+  ],
+  conversation: [
+    { label: "Facebook Marketplace", hint: "conversation screenshot" },
+    { label: "Craigslist", hint: "conversation screenshot" },
+    { label: "Nextdoor", hint: "conversation screenshot" },
+    { label: "Rental site messaging", hint: "conversation screenshot" },
+    { label: "Somewhere else", hint: "conversation screenshot" }
+  ],
+  service: [
+    { label: "Nextdoor", hint: "their offer or profile screenshot" },
+    { label: "Facebook", hint: "their offer or profile screenshot" },
+    { label: "Somewhere else", hint: "their offer or profile screenshot" }
+  ]
+};
+
+const taglines = {
+  listing: "Where's this listing from?",
+  conversation: "Where's this conversation happening?",
+  service: "Where did they reach out?",
+  unsure: "Add a screenshot of whatever's got you wondering."
+};
+
+function goToStep(name) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + name).classList.add('active');
+}
+
+function chooseCategory(cat) {
+  selectedCategory = cat;
+  document.getElementById('tagline').textContent = taglines[cat];
+
+  if (cat === 'unsure') {
+    selectedPlatform = 'unspecified';
+    document.getElementById('dropHint').textContent = "We'll run a broad check across everything we look for.";
+    goToStep('upload');
+    return;
+  }
+
+  const card = document.getElementById('platformCard');
+  card.innerHTML = platformOptions[cat].map(p =>
+    `<div class="opt" onclick="choosePlatform('${p.label.replace(/'/g, "\\'")}', '${p.hint.replace(/'/g, "\\'")}')">
+      <div class="ot">${p.label}</div>
+    </div>`
+  ).join('');
+  goToStep('platform');
+}
+
+function choosePlatform(label, hint) {
+  selectedPlatform = label;
+  document.getElementById('dropHint').textContent = "Include the " + hint + ".";
+  document.getElementById('tagline').textContent = "Add a screenshot to check.";
+  goToStep('upload');
+}
+
 let fileData = null;
 const drop=document.getElementById('drop'), fileEl=document.getElementById('file'),
       preview=document.getElementById('preview'), go=document.getElementById('go'),
       errEl=document.getElementById('err'), result=document.getElementById('result'),
       confirmBox=document.getElementById('confirmBox');
-
 drop.onclick=()=>fileEl.click();
 ['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
 ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
 drop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) setFile(ev.dataTransfer.files[0]); });
 fileEl.onchange=()=>{ if(fileEl.files[0]) setFile(fileEl.files[0]); };
-
 function setFile(f){
   fileData=f; const url=URL.createObjectURL(f);
   preview.src=url; preview.style.display='block'; go.disabled=false;
   errEl.innerHTML=''; result.innerHTML=''; confirmBox.innerHTML='';
 }
 function money(n){ return n==null?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}); }
-
 async function analyze(extra){
   go.disabled=true; go.innerHTML='<span class="spinner"></span>Reading screenshot & pricing…';
   errEl.innerHTML='';
   try{
     const fd=new FormData();
     if(fileData) fd.append('screenshot',fileData);
+    fd.append('category', selectedCategory || 'unsure');
+    fd.append('platform', selectedPlatform || 'unspecified');
     if(extra) for(const k in extra) fd.append(k,extra[k]);
     const res=await fetch('/api/analyze',{method:'POST',body:fd});
     const data=await res.json();
@@ -101,10 +200,9 @@ async function analyze(extra){
     if(data.needsConfirmation){ renderConfirm(data.fields); return; }
     renderResult(data);
   }catch(e){ errEl.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
-  finally{ go.disabled=false; go.textContent='Analyze deal'; }
+  finally{ go.disabled=false; go.textContent='Analyze'; }
 }
 go.onclick=()=>analyze();
-
 function renderConfirm(f){
   confirmBox.innerHTML=`<div class="confirm">
     <strong>Low-confidence read — confirm before we price it.</strong>
@@ -118,7 +216,6 @@ function renderConfirm(f){
     condition:f.sellerCondition||'', message:f.listingText||''
   });
 }
-
 function renderResult(d){
   confirmBox.innerHTML='';
   const v=d.verdict, p=d.prices, f=d.fields;
@@ -148,3 +245,4 @@ function renderResult(d){
 </script>
 </body>
 </html>
+
