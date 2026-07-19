@@ -44,6 +44,7 @@ button.analyze:disabled{opacity:.55;cursor:default;}
 .confirm label{font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;}
 .confirm input{width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;}
 .disc{font-size:11px;color:#98a0aa;margin-top:16px;}
+/* --- triage additions --- */
 .step{display:none;}
 .step.active{display:block;}
 .opt{background:#f8f9fb;border:1px solid #eceef1;border-radius:12px;padding:14px;margin-bottom:9px;cursor:pointer;transition:.12s;}
@@ -59,32 +60,61 @@ button.analyze:disabled{opacity:.55;cursor:default;}
   <div class="brand"><div class="logo">P</div><h1>PurPort</h1></div>
   <p class="tag" id="tagline">What do you want us to check?</p>
 
+  <!-- STEP 1: what do you have -->
   <div class="step active" id="step-what">
     <div class="card">
       <div class="opt" data-cat="listing" onclick="chooseCategory('listing')">
         <div class="ot">🏠 A listing I'm looking at</div>
         <div class="od">A rental, apartment, or item for sale</div>
       </div>
-      <div class="opt" data-cat="conversation" onclick="chooseCategory('conversation')">
-        <div class="ot">💬 A conversation with a seller or landlord</div>
-        <div class="od">Messages about a listing you're interested in</div>
-      </div>
-      <div class="opt" data-cat="service" onclick="chooseCategory('service')">
-        <div class="ot">🛠️ Someone offering me a service</div>
-        <div class="od">A contractor, handyman, mover, or similar</div>
-      </div>
       <div class="opt" data-cat="unsure" onclick="chooseCategory('unsure')">
-        <div class="ot">🤔 I'm not sure — just check it</div>
+        <div class="ot">🤔 Something else — a conversation, an offer, not sure</div>
         <div class="od">We'll scan for anything that looks off</div>
       </div>
     </div>
   </div>
 
+  <!-- STEP 2: platform (options rendered by JS based on category) -->
   <div class="step" id="step-platform">
     <button class="backlink" onclick="goToStep('what')">← Back</button>
     <div class="card" id="platformCard"></div>
   </div>
 
+  <!-- STEP 2.5: rental structured fields (listing + rental platform only) -->
+  <div class="step" id="step-rental">
+    <button class="backlink" onclick="goToStep('platform')">← Back</button>
+    <div class="card">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Monthly rent ($)</label>
+      <input type="number" id="rRent" placeholder="e.g. 1200" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Typical rent for similar places nearby (optional)</label>
+      <input type="number" id="rMarket" placeholder="Leave blank if you're not sure" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Paste the listing text or their messages</label>
+      <textarea id="rText" rows="5" placeholder="Paste as much as you can — this is the biggest signal we use." style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;font-family:inherit;"></textarea>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">How do they describe themselves?</label>
+      <input type="text" id="rClaim" placeholder="e.g. owner, property manager, agent" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Have they offered a video call or in-person tour?</label>
+      <select id="rTour" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+        <option value="">Haven't asked yet</option>
+        <option value="yes">Yes</option>
+        <option value="no">No / they refused</option>
+      </select>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Are they asking for payment before you've seen the place?</label>
+      <select id="rPayBefore" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+        <option value="">Not sure / haven't discussed payment</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+      <label style="margin-top:10px;display:flex;align-items:center;gap:7px;font-weight:400;font-size:13px;">
+        <input type="checkbox" id="rRepeat" style="width:auto;"> They repeated the same question without answering mine
+      </label>
+      <button class="analyze" id="rGo" style="margin-top:14px">Check this rental</button>
+      <div id="rErr"></div>
+    </div>
+    <div id="rResult"></div>
+    <p class="disc">This checks structured details you enter, not a screenshot. Based on known rental-scam patterns; not a guarantee of legitimacy or fraud. Always verify ownership and see the property before paying anything.</p>
+  </div>
+
+  <!-- STEP 3: existing upload card (unchanged pipeline) -->
   <div class="step" id="step-upload">
     <button class="backlink" onclick="goToStep('platform')">← Back</button>
     <div class="card">
@@ -105,6 +135,7 @@ button.analyze:disabled{opacity:.55;cursor:default;}
 </div>
 
 <script>
+// ---- triage state ----
 let selectedCategory = null;
 let selectedPlatform = null;
 
@@ -115,25 +146,11 @@ const platformOptions = {
     { label: "Craigslist", hint: "Craigslist listing screenshot" },
     { label: "Nextdoor", hint: "Nextdoor listing screenshot" },
     { label: "Somewhere else", hint: "listing screenshot" }
-  ],
-  conversation: [
-    { label: "Facebook Marketplace", hint: "conversation screenshot" },
-    { label: "Craigslist", hint: "conversation screenshot" },
-    { label: "Nextdoor", hint: "conversation screenshot" },
-    { label: "Rental site messaging", hint: "conversation screenshot" },
-    { label: "Somewhere else", hint: "conversation screenshot" }
-  ],
-  service: [
-    { label: "Nextdoor", hint: "their offer or profile screenshot" },
-    { label: "Facebook", hint: "their offer or profile screenshot" },
-    { label: "Somewhere else", hint: "their offer or profile screenshot" }
   ]
 };
 
 const taglines = {
   listing: "Where's this listing from?",
-  conversation: "Where's this conversation happening?",
-  service: "Where did they reach out?",
   unsure: "Add a screenshot of whatever's got you wondering."
 };
 
@@ -166,9 +183,15 @@ function choosePlatform(label, hint) {
   selectedPlatform = label;
   document.getElementById('dropHint').textContent = "Include the " + hint + ".";
   document.getElementById('tagline').textContent = "Add a screenshot to check.";
+  if (selectedCategory === 'listing' && label === 'Zillow / rental site') {
+    document.getElementById('tagline').textContent = "Tell us about the rental.";
+    goToStep('rental');
+    return;
+  }
   goToStep('upload');
 }
 
+// ---- existing upload/analyze pipeline (unchanged, now tags category+platform) ----
 let fileData = null;
 const drop=document.getElementById('drop'), fileEl=document.getElementById('file'),
       preview=document.getElementById('preview'), go=document.getElementById('go'),
@@ -242,7 +265,39 @@ function renderResult(d){
       <div class="comps"><h3>Live comparable listings</h3>${comps}</div>
     </div>`;
 }
+
+const rGo=document.getElementById('rGo'), rErr=document.getElementById('rErr'), rResult=document.getElementById('rResult');
+rGo.onclick=async()=>{
+  rGo.disabled=true; rGo.innerHTML='<span class="spinner"></span>Checking…';
+  rErr.innerHTML=''; rResult.innerHTML='';
+  const tourVal=document.getElementById('rTour').value;
+  const payVal=document.getElementById('rPayBefore').value;
+  const body={
+    monthlyRent: document.getElementById('rRent').value ? Number(document.getElementById('rRent').value) : null,
+    marketRentMedian: document.getElementById('rMarket').value ? Number(document.getElementById('rMarket').value) : null,
+    listingText: document.getElementById('rText').value || '',
+    landlordClaim: document.getElementById('rClaim').value || '',
+    contactOfferedVideoOrInPerson: tourVal==='' ? null : (tourVal==='yes'),
+    paymentRequestedBeforeTour: payVal==='' ? null : (payVal==='yes'),
+    scriptedRepeatQuestion: document.getElementById('rRepeat').checked
+  };
+  try{
+    const res=await fetch('/api/analyze-rental',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok){ throw new Error(data.error||'Check failed'); }
+    renderRentalResult(data.verdict);
+  }catch(e){ rErr.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
+  finally{ rGo.disabled=false; rGo.textContent='Check this rental'; }
+};
+function renderRentalResult(v){
+  const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
+  const headline=v.level==='high'?'High risk':v.level==='caution'?'Some red flags':'Looks reasonable';
+  const flagClass=v.level==='low'?'green':(v.level==='high'?'red':'amber');
+  const flagIco=v.level==='high'?'⚠':v.level==='low'?'✓':'•';
+  const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what you entered.</div>';
+  const n=(v.firedPatterns||[]).length;
+  rResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from what you told us.</p></div><div class="card">'+flags+'</div>';
+}
 </script>
 </body>
 </html>
-

@@ -70,7 +70,6 @@ app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
   }
 });
 
-
 app.post("/api/analyze-rental", (req, res) => {
   try {
     const body = req.body || {};
@@ -87,5 +86,3 @@ app.post("/api/analyze-rental", (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`PurPort listening on :${port}`));
-
-
