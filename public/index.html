@@ -67,8 +67,12 @@ button.analyze:disabled{opacity:.55;cursor:default;}
         <div class="ot">🏠 A listing I'm looking at</div>
         <div class="od">A rental, apartment, or item for sale</div>
       </div>
+      <div class="opt" data-cat="service" onclick="chooseCategory('service')">
+        <div class="ot">🛠️ Someone offering me a service</div>
+        <div class="od">A contractor, handyman, mover, or similar</div>
+      </div>
       <div class="opt" data-cat="unsure" onclick="chooseCategory('unsure')">
-        <div class="ot">🤔 Something else — a conversation, an offer, not sure</div>
+        <div class="ot">🤔 Something else — a conversation, not sure</div>
         <div class="od">We'll scan for anything that looks off</div>
       </div>
     </div>
@@ -114,6 +118,40 @@ button.analyze:disabled{opacity:.55;cursor:default;}
     <p class="disc">This checks structured details you enter, not a screenshot. Based on known rental-scam patterns; not a guarantee of legitimacy or fraud. Always verify ownership and see the property before paying anything.</p>
   </div>
 
+  <!-- STEP 2.6: service/contractor structured fields -->
+  <div class="step" id="step-service">
+    <button class="backlink" onclick="goToStep('what')">← Back</button>
+    <div class="card">
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Paste their pitch, message, or what they told you</label>
+      <textarea id="sText" rows="5" placeholder="Paste as much as you can — this is the biggest signal we use." style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;font-family:inherit;"></textarea>
+      <label style="margin-top:10px;display:flex;align-items:center;gap:7px;font-weight:400;font-size:13px;">
+        <input type="checkbox" id="sUnsolicited" style="width:auto;"> They showed up or contacted me without me reaching out first
+      </label>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Did they provide a license/insurance you could verify?</label>
+      <select id="sLicensed" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+        <option value="">Haven't asked / not sure</option>
+        <option value="yes">Yes</option>
+        <option value="no">No / they deflected</option>
+      </select>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Did they give you a written estimate?</label>
+      <select id="sEstimate" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+        <option value="">Not yet</option>
+        <option value="yes">Yes</option>
+        <option value="no">No, verbal only</option>
+      </select>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Are they asking for full payment before work starts?</label>
+      <select id="sPayBefore" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
+        <option value="">Not discussed yet</option>
+        <option value="yes">Yes</option>
+        <option value="no">No, milestone/completion-based</option>
+      </select>
+      <button class="analyze" id="sGo" style="margin-top:14px">Check this offer</button>
+      <div id="sErr"></div>
+    </div>
+    <div id="sResult"></div>
+    <p class="disc">This checks structured details you enter, not a screenshot. Based on known contractor/service-scam patterns; not a guarantee of legitimacy or fraud. Always verify licensing independently before paying anything.</p>
+  </div>
+
   <!-- STEP 3: existing upload card (unchanged pipeline) -->
   <div class="step" id="step-upload">
     <button class="backlink" onclick="goToStep('platform')">← Back</button>
@@ -151,6 +189,7 @@ const platformOptions = {
 
 const taglines = {
   listing: "Where's this listing from?",
+  service: "Tell us about the offer.",
   unsure: "Add a screenshot of whatever's got you wondering."
 };
 
@@ -167,6 +206,11 @@ function chooseCategory(cat) {
     selectedPlatform = 'unspecified';
     document.getElementById('dropHint').textContent = "We'll run a broad check across everything we look for.";
     goToStep('upload');
+    return;
+  }
+
+  if (cat === 'service') {
+    goToStep('service');
     return;
   }
 
@@ -297,6 +341,38 @@ function renderRentalResult(v){
   const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what you entered.</div>';
   const n=(v.firedPatterns||[]).length;
   rResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from what you told us.</p></div><div class="card">'+flags+'</div>';
+}
+
+const sGo=document.getElementById('sGo'), sErr=document.getElementById('sErr'), sResult=document.getElementById('sResult');
+sGo.onclick=async()=>{
+  sGo.disabled=true; sGo.innerHTML='<span class="spinner"></span>Checking…';
+  sErr.innerHTML=''; sResult.innerHTML='';
+  const licVal=document.getElementById('sLicensed').value;
+  const estVal=document.getElementById('sEstimate').value;
+  const payVal=document.getElementById('sPayBefore').value;
+  const body={
+    descriptionText: document.getElementById('sText').value || '',
+    wasUnsolicited: document.getElementById('sUnsolicited').checked,
+    claimedLicensed: licVal==='' ? null : (licVal==='yes'),
+    providedWrittenEstimate: estVal==='' ? null : (estVal==='yes'),
+    paymentRequestedBeforeWorkStarted: payVal==='' ? null : (payVal==='yes')
+  };
+  try{
+    const res=await fetch('/api/analyze-service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok){ throw new Error(data.error||'Check failed'); }
+    renderServiceResult(data.verdict);
+  }catch(e){ sErr.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
+  finally{ sGo.disabled=false; sGo.textContent='Check this offer'; }
+};
+function renderServiceResult(v){
+  const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
+  const headline=v.level==='high'?'High risk':v.level==='caution'?'Some red flags':'Looks reasonable';
+  const flagClass=v.level==='low'?'green':(v.level==='high'?'red':'amber');
+  const flagIco=v.level==='high'?'⚠':v.level==='low'?'✓':'•';
+  const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what you entered.</div>';
+  const n=(v.firedPatterns||[]).length;
+  sResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from what you told us.</p></div><div class="card">'+flags+'</div>';
 }
 </script>
 </body>
