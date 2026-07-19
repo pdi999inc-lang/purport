@@ -7,7 +7,7 @@ import { analyzeScreenshot } from "./lib/vision.js";
 import { getPrices } from "./lib/pricing.js";
 import { analyze } from "./lib/analyze.js";
 import { analyzeRental } from "./lib/analyzeRental.js";
-
+import { analyzeService } from "./lib/analyzeService.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const upload = multer({ limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB screenshots
@@ -83,6 +83,18 @@ app.post("/api/analyze-rental", (req, res) => {
     res.status(500).json({ error: err.message || "Rental analysis failed" });
   }
 });
-
+app.post("/api/analyze-service", (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!body.descriptionText) {
+      return res.status(400).json({ error: "Describe the offer or paste their message." });
+    }
+    const verdict = analyzeService(body);
+    res.json({ verdict });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Service analysis failed" });
+  }
+});
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`PurPort listening on :${port}`));
