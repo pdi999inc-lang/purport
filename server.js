@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeScreenshot } from "./lib/vision.js";
 import { getPrices } from "./lib/pricing.js";
 import { analyze } from "./lib/analyze.js";
+import { analyzeRental } from "./lib/analyzeRental.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -47,6 +48,13 @@ app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
       return res.json({ needsConfirmation: true, fields });
     }
 
+    // PA-05 accuracy testing: skip the pricing lookup entirely when only
+    // product-ID accuracy is being measured, so it doesn't burn Nimble
+    // credits on data the test doesn't use. Opt-in only, off by default.
+    if (req.body.skipPricing === "true") {
+      return res.json({ fields, prices: null, verdict: null, skippedPricing: true });
+    }
+
     const prices = await getPrices(fields.product);
     const verdict = analyze({
       askingPrice: fields.askingPrice,
@@ -62,5 +70,22 @@ app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
   }
 });
 
+
+app.post("/api/analyze-rental", (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!body.monthlyRent && !body.listingText) {
+      return res.status(400).json({ error: "Provide at least monthlyRent or listingText." });
+    }
+    const verdict = analyzeRental(body);
+    res.json({ verdict });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Rental analysis failed" });
+  }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`PurPort listening on :${port}`));
+
+
