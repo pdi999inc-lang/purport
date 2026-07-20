@@ -18,7 +18,10 @@ h1{font-size:21px;margin:0;letter-spacing:-.3px;}
 .drop:hover,.drop.over{border-color:#7c4dff;background:#faf9ff;}
 .drop p{margin:6px 0 0;color:#6b7480;font-size:13px;}
 .drop strong{color:#5b3df5;}
-#preview,.preview-img{max-width:100%;border-radius:10px;margin-top:12px;display:none;}
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.thumb{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid #e6e8ec;}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.thumb .rm{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:0;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;text-align:center;cursor:pointer;padding:0;}
 button.analyze{width:100%;padding:13px;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#5b3df5,#7c4dff);color:#fff;margin-top:14px;}
 button.analyze:disabled{opacity:.55;cursor:default;}
 .muted{color:#6b7480;font-size:12.5px;}
@@ -53,6 +56,8 @@ button.analyze:disabled{opacity:.55;cursor:default;}
 .opt .od{font-size:12.5px;color:#6b7480;}
 .backlink{background:none;border:0;color:#6b7480;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;}
 .backlink:hover{color:#1a1d21;}
+.or-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#98a0aa;font-size:12px;text-transform:uppercase;letter-spacing:.5px;}
+.or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:#e6e8ec;}
 </style>
 </head>
 <body>
@@ -84,30 +89,38 @@ button.analyze:disabled{opacity:.55;cursor:default;}
     <div class="card" id="platformCard"></div>
   </div>
 
-  <!-- STEP 2.5: rental — screenshot upload, same pattern as marketplace upload -->
+  <!-- STEP 2.5: rental — multi-screenshot upload, same pattern as marketplace -->
   <div class="step" id="step-rental">
     <button class="backlink" onclick="goToStep('platform')">← Back</button>
     <div class="card">
       <div class="drop" id="rDrop">
         <div style="font-size:26px">📷</div>
-        <p><strong>Tap to upload</strong> or drop a screenshot here</p>
-        <p class="muted">The rental listing, or a message from the landlord/property manager</p>
-        <input type="file" id="rFile" accept="image/*" hidden>
+        <p><strong>Tap to upload</strong> or drop up to 5 screenshots here</p>
+        <p class="muted">The rental listing, or messages from the landlord/property manager — scroll and capture as many as you need</p>
+        <input type="file" id="rFile" accept="image/*" multiple hidden>
       </div>
-      <img id="rPreview" class="preview-img" alt="preview">
+      <div class="thumbs" id="rThumbs"></div>
       <button class="analyze" id="rGo" disabled>Check this rental</button>
       <div id="rErr"></div>
     </div>
     <div id="rResult"></div>
-    <p class="disc">Details are read automatically from your screenshot — extraction may be imperfect, especially for signals that only come up in an ongoing conversation (e.g. whether a tour was offered). Based on known rental-scam patterns; not a guarantee of legitimacy or fraud. Always verify ownership and see the property before paying anything.</p>
+    <p class="disc">Details are read automatically from your screenshots — extraction may be imperfect, especially for signals that only come up in an ongoing conversation (e.g. whether a tour was offered). Based on known rental-scam patterns; not a guarantee of legitimacy or fraud. Always verify ownership and see the property before paying anything.</p>
   </div>
 
-  <!-- STEP 2.6: service/contractor structured fields -->
+  <!-- STEP 2.6: service/contractor — multi-screenshot upload, with manual text fallback -->
   <div class="step" id="step-service">
     <button class="backlink" onclick="goToStep('what')">← Back</button>
     <div class="card">
+      <div class="drop" id="sDrop">
+        <div style="font-size:26px">📷</div>
+        <p><strong>Tap to upload</strong> or drop up to 5 screenshots here</p>
+        <p class="muted">Their message thread, profile, or estimate — scroll and capture as many as you need</p>
+        <input type="file" id="sFile" accept="image/*" multiple hidden>
+      </div>
+      <div class="thumbs" id="sThumbs"></div>
+      <div class="or-divider">or type it in</div>
       <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Paste their pitch, message, or what they told you</label>
-      <textarea id="sText" rows="5" placeholder="Paste as much as you can — this is the biggest signal we use." style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;font-family:inherit;"></textarea>
+      <textarea id="sText" rows="4" placeholder="Only needed if you're not uploading screenshots." style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;font-family:inherit;"></textarea>
       <label style="margin-top:10px;display:flex;align-items:center;gap:7px;font-weight:400;font-size:13px;">
         <input type="checkbox" id="sUnsolicited" style="width:auto;"> They showed up or contacted me without me reaching out first
       </label>
@@ -133,26 +146,26 @@ button.analyze:disabled{opacity:.55;cursor:default;}
       <div id="sErr"></div>
     </div>
     <div id="sResult"></div>
-    <p class="disc">This checks structured details you enter, not a screenshot. Based on known contractor/service-scam patterns; not a guarantee of legitimacy or fraud. Always verify licensing independently before paying anything.</p>
+    <p class="disc">Screenshots are read automatically when provided; the fields below are used as a fallback or supplement. Based on known contractor/service-scam patterns; not a guarantee of legitimacy or fraud. Always verify licensing independently before paying anything.</p>
   </div>
 
-  <!-- STEP 3: existing upload card (unchanged pipeline) -->
+  <!-- STEP 3: marketplace — multi-screenshot upload -->
   <div class="step" id="step-upload">
     <button class="backlink" onclick="goToStep('platform')">← Back</button>
     <div class="card">
       <div class="drop" id="drop">
         <div style="font-size:26px">📷</div>
-        <p><strong>Tap to upload</strong> or drop a screenshot here</p>
-        <p class="muted" id="dropHint">Facebook Marketplace, Craigslist, eBay, OfferUp…</p>
-        <input type="file" id="file" accept="image/*" hidden>
+        <p><strong>Tap to upload</strong> or drop up to 5 screenshots here</p>
+        <p class="muted" id="dropHint">Facebook Marketplace, Craigslist, eBay, OfferUp — scroll and capture as many as you need</p>
+        <input type="file" id="file" accept="image/*" multiple hidden>
       </div>
-      <img id="preview" alt="preview">
+      <div class="thumbs" id="thumbs"></div>
       <button class="analyze" id="go" disabled>Analyze</button>
       <div id="err"></div>
       <div id="confirmBox"></div>
     </div>
     <div id="result"></div>
-    <p class="disc">Prices pulled live from public marketplace listings; treated as a snapshot, not a guaranteed valuation. Product ID is AI-generated from your screenshot and may be wrong — confirm before trusting the verdict. Not financial advice. Always inspect in person and pay on pickup.</p>
+    <p class="disc">Prices pulled live from public marketplace listings; treated as a snapshot, not a guaranteed valuation. Product ID is AI-generated from your screenshots and may be wrong — confirm before trusting the verdict. Not financial advice. Always inspect in person and pay on pickup.</p>
   </div>
 </div>
 
@@ -160,21 +173,22 @@ button.analyze:disabled{opacity:.55;cursor:default;}
 // ---- triage state ----
 let selectedCategory = null;
 let selectedPlatform = null;
+const MAX_FILES = 5;
 
 const platformOptions = {
   listing: [
-    { label: "Zillow / rental site", hint: "rental listing screenshot" },
-    { label: "Facebook Marketplace", hint: "marketplace listing screenshot" },
-    { label: "Craigslist", hint: "Craigslist listing screenshot" },
-    { label: "Nextdoor", hint: "Nextdoor listing screenshot" },
-    { label: "Somewhere else", hint: "listing screenshot" }
+    { label: "Zillow / rental site", hint: "rental listing screenshots" },
+    { label: "Facebook Marketplace", hint: "marketplace listing screenshots" },
+    { label: "Craigslist", hint: "Craigslist listing screenshots" },
+    { label: "Nextdoor", hint: "Nextdoor listing screenshots" },
+    { label: "Somewhere else", hint: "listing screenshots" }
   ]
 };
 
 const taglines = {
   listing: "Where's this listing from?",
   service: "Tell us about the offer.",
-  unsure: "Add a screenshot of whatever's got you wondering."
+  unsure: "Add screenshots of whatever's got you wondering."
 };
 
 function goToStep(name) {
@@ -210,9 +224,9 @@ function chooseCategory(cat) {
 function choosePlatform(label, hint) {
   selectedPlatform = label;
   document.getElementById('dropHint').textContent = "Include the " + hint + ".";
-  document.getElementById('tagline').textContent = "Add a screenshot to check.";
+  document.getElementById('tagline').textContent = "Add screenshots to check.";
   if (selectedCategory === 'listing' && label === 'Zillow / rental site') {
-    document.getElementById('tagline').textContent = "Add a screenshot of the rental listing.";
+    document.getElementById('tagline').textContent = "Add screenshots of the rental listing.";
     goToStep('rental');
     return;
   }
@@ -221,62 +235,92 @@ function choosePlatform(label, hint) {
 
 function money(n){ return n==null?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}); }
 
-// ---- existing upload/analyze pipeline (unchanged, now tags category+platform) ----
-let fileData = null;
-const drop=document.getElementById('drop'), fileEl=document.getElementById('file'),
-      preview=document.getElementById('preview'), go=document.getElementById('go'),
-      errEl=document.getElementById('err'), result=document.getElementById('result'),
-      confirmBox=document.getElementById('confirmBox');
-drop.onclick=()=>fileEl.click();
-['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
-['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
-drop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) setFile(ev.dataTransfer.files[0]); });
-fileEl.onchange=()=>{ if(fileEl.files[0]) setFile(fileEl.files[0]); };
-function setFile(f){
-  fileData=f; const url=URL.createObjectURL(f);
-  preview.src=url; preview.style.display='block'; go.disabled=false;
-  errEl.innerHTML=''; result.innerHTML=''; confirmBox.innerHTML='';
+// ---- reusable multi-file upload widget ----
+// Wires a drop zone + hidden file input + thumbnail strip + analyze button
+// to a shared file list. Returns helpers to read/clear the current files.
+function makeUploader({ dropId, fileId, thumbsId, goId }) {
+  const dropEl = document.getElementById(dropId);
+  const fileEl = document.getElementById(fileId);
+  const thumbsEl = document.getElementById(thumbsId);
+  const goEl = document.getElementById(goId);
+  let files = [];
+
+  function render() {
+    thumbsEl.innerHTML = files.map((f, i) => {
+      const url = URL.createObjectURL(f);
+      return `<div class="thumb"><img src="${url}" alt=""><button type="button" class="rm" data-i="${i}">×</button></div>`;
+    }).join('');
+    thumbsEl.querySelectorAll('.rm').forEach(btn => {
+      btn.onclick = () => { files.splice(Number(btn.dataset.i), 1); render(); };
+    });
+    goEl.disabled = files.length === 0;
+  }
+
+  function addFiles(list) {
+    for (const f of list) {
+      if (files.length >= MAX_FILES) break;
+      if (f.type.startsWith('image/')) files.push(f);
+    }
+    render();
+  }
+
+  dropEl.onclick = () => fileEl.click();
+  ['dragover', 'dragenter'].forEach(e => dropEl.addEventListener(e, ev => { ev.preventDefault(); dropEl.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(e => dropEl.addEventListener(e, ev => { ev.preventDefault(); dropEl.classList.remove('over'); }));
+  dropEl.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) addFiles(ev.dataTransfer.files); });
+  fileEl.onchange = () => { if (fileEl.files.length) addFiles(fileEl.files); fileEl.value = ''; };
+
+  return {
+    getFiles: () => files,
+    clear: () => { files = []; render(); }
+  };
 }
-async function analyze(extra){
-  go.disabled=true; go.innerHTML='<span class="spinner"></span>Reading screenshot & pricing…';
-  errEl.innerHTML='';
-  try{
-    const fd=new FormData();
-    if(fileData) fd.append('screenshot',fileData);
+
+// ---- marketplace upload/analyze pipeline ----
+const uploader = makeUploader({ dropId: 'drop', fileId: 'file', thumbsId: 'thumbs', goId: 'go' });
+const go = document.getElementById('go'), errEl = document.getElementById('err'),
+      result = document.getElementById('result'), confirmBox = document.getElementById('confirmBox');
+
+async function analyze(extra) {
+  go.disabled = true; go.innerHTML = '<span class="spinner"></span>Reading screenshots & pricing…';
+  errEl.innerHTML = '';
+  try {
+    const fd = new FormData();
+    uploader.getFiles().forEach(f => fd.append('screenshots', f));
     fd.append('category', selectedCategory || 'unsure');
     fd.append('platform', selectedPlatform || 'unspecified');
-    if(extra) for(const k in extra) fd.append(k,extra[k]);
-    const res=await fetch('/api/analyze',{method:'POST',body:fd});
-    const data=await res.json();
-    if(!res.ok){ throw new Error(data.error||'Analysis failed'); }
-    if(data.needsConfirmation){ renderConfirm(data.fields); return; }
+    if (extra) for (const k in extra) fd.append(k, extra[k]);
+    const res = await fetch('/api/analyze', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) { throw new Error(data.error || 'Analysis failed'); }
+    if (data.needsConfirmation) { renderConfirm(data.fields); return; }
     renderResult(data);
-  }catch(e){ errEl.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
-  finally{ go.disabled=false; go.textContent='Analyze'; }
+  } catch (e) { errEl.innerHTML = '<div class="err">' + (e.message || e) + '</div>'; }
+  finally { go.disabled = false; go.textContent = 'Analyze'; }
 }
-go.onclick=()=>analyze();
-function renderConfirm(f){
-  confirmBox.innerHTML=`<div class="confirm">
+go.onclick = () => analyze();
+function renderConfirm(f) {
+  confirmBox.innerHTML = `<div class="confirm">
     <strong>Low-confidence read — confirm before we price it.</strong>
-    <label>Product</label><input id="cProduct" value="${(f.product||'').replace(/"/g,'&quot;')}">
-    <label>Asking price ($)</label><input id="cAsking" type="number" value="${f.askingPrice??''}">
+    <label>Product</label><input id="cProduct" value="${(f.product || '').replace(/"/g, '&quot;')}">
+    <label>Asking price ($)</label><input id="cAsking" type="number" value="${f.askingPrice ?? ''}">
     <button class="analyze" id="cGo" style="margin-top:12px">Confirm & analyze</button>
   </div>`;
-  document.getElementById('cGo').onclick=()=>analyze({
-    confirmed:'1', product:document.getElementById('cProduct').value,
-    asking:document.getElementById('cAsking').value,
-    condition:f.sellerCondition||'', message:f.listingText||''
+  document.getElementById('cGo').onclick = () => analyze({
+    confirmed: '1', product: document.getElementById('cProduct').value,
+    asking: document.getElementById('cAsking').value,
+    condition: f.sellerCondition || '', message: f.listingText || ''
   });
 }
-function renderResult(d){
-  confirmBox.innerHTML='';
-  const v=d.verdict, p=d.prices, f=d.fields;
-  const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
-  const comps=(p.comps||[]).map(c=>`<div class="comp"><a href="${c.url}" target="_blank" rel="noopener">${(c.title||'').slice(0,60)}</a><span class="p">${money(c.price)}</span></div>`).join('')||'<div class="muted">No comparable listings parsed.</div>';
-  const flags=(v.flags||[]).map(x=>`<div class="flag ${x.level}"><span class="ico">${x.level==='red'?'⚠':x.level==='green'?'✓':'•'}</span><span>${x.text}</span></div>`).join('');
-  const condLine = f.sellerCondition||f.photoCondition
-    ? `<div class="stat"><div class="k">Condition</div><div class="val" style="font-size:14px">Says: ${f.sellerCondition||'—'}<br><span class="muted" style="font-size:12px">Photo: ${f.photoCondition||'—'}</span></div></div>` : '';
-  result.innerHTML=`
+function renderResult(d) {
+  confirmBox.innerHTML = '';
+  const v = d.verdict, p = d.prices, f = d.fields;
+  const color = v.level === 'high' ? '#b42318' : v.level === 'caution' ? '#c77700' : '#1c8a4f';
+  const comps = (p.comps || []).map(c => `<div class="comp"><a href="${c.url}" target="_blank" rel="noopener">${(c.title || '').slice(0, 60)}</a><span class="p">${money(c.price)}</span></div>`).join('') || '<div class="muted">No comparable listings parsed.</div>';
+  const flags = (v.flags || []).map(x => `<div class="flag ${x.level}"><span class="ico">${x.level === 'red' ? '⚠' : x.level === 'green' ? '✓' : '•'}</span><span>${x.text}</span></div>`).join('');
+  const condLine = f.sellerCondition || f.photoCondition
+    ? `<div class="stat"><div class="k">Condition</div><div class="val" style="font-size:14px">Says: ${f.sellerCondition || '—'}<br><span class="muted" style="font-size:12px">Photo: ${f.photoCondition || '—'}</span></div></div>` : '';
+  result.innerHTML = `
     <div class="verdict" style="background:${color}">
       <p class="v-title">${v.headline} · ${f.product}</p>
       <p class="v-score">${v.scamScore}% <span style="font-size:14px;font-weight:600;">scam probability</span></p>
@@ -295,80 +339,78 @@ function renderResult(d){
     </div>`;
 }
 
-// ---- rental: screenshot upload + analyze ----
-let rFileData = null;
-const rDrop=document.getElementById('rDrop'), rFileEl=document.getElementById('rFile'),
-      rPreview=document.getElementById('rPreview'), rGo=document.getElementById('rGo'),
-      rErr=document.getElementById('rErr'), rResult=document.getElementById('rResult');
-rDrop.onclick=()=>rFileEl.click();
-['dragover','dragenter'].forEach(e=>rDrop.addEventListener(e,ev=>{ev.preventDefault();rDrop.classList.add('over');}));
-['dragleave','drop'].forEach(e=>rDrop.addEventListener(e,ev=>{ev.preventDefault();rDrop.classList.remove('over');}));
-rDrop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) setRFile(ev.dataTransfer.files[0]); });
-rFileEl.onchange=()=>{ if(rFileEl.files[0]) setRFile(rFileEl.files[0]); };
-function setRFile(f){
-  rFileData=f; const url=URL.createObjectURL(f);
-  rPreview.src=url; rPreview.style.display='block'; rGo.disabled=false;
-  rErr.innerHTML=''; rResult.innerHTML='';
-}
-rGo.onclick=async()=>{
-  if(!rFileData) return;
-  rGo.disabled=true; rGo.innerHTML='<span class="spinner"></span>Reading screenshot…';
-  rErr.innerHTML=''; rResult.innerHTML='';
-  try{
-    const fd=new FormData();
-    fd.append('screenshot', rFileData);
-    const res=await fetch('/api/analyze-rental',{method:'POST',body:fd});
-    const data=await res.json();
-    if(!res.ok){ throw new Error(data.error||'Check failed'); }
+// ---- rental: multi-screenshot upload + analyze ----
+const rUploader = makeUploader({ dropId: 'rDrop', fileId: 'rFile', thumbsId: 'rThumbs', goId: 'rGo' });
+const rGo = document.getElementById('rGo'), rErr = document.getElementById('rErr'), rResult = document.getElementById('rResult');
+rGo.onclick = async () => {
+  if (!rUploader.getFiles().length) return;
+  rGo.disabled = true; rGo.innerHTML = '<span class="spinner"></span>Reading screenshots…';
+  rErr.innerHTML = ''; rResult.innerHTML = '';
+  try {
+    const fd = new FormData();
+    rUploader.getFiles().forEach(f => fd.append('screenshots', f));
+    const res = await fetch('/api/analyze-rental', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) { throw new Error(data.error || 'Check failed'); }
     renderRentalResult(data.verdict, data.fields);
-  }catch(e){ rErr.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
-  finally{ rGo.disabled=false; rGo.textContent='Check this rental'; }
+  } catch (e) { rErr.innerHTML = '<div class="err">' + (e.message || e) + '</div>'; }
+  finally { rGo.disabled = false; rGo.textContent = 'Check this rental'; }
 };
-function renderRentalResult(v, f){
-  const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
-  const headline=v.level==='high'?'High risk':v.level==='caution'?'Some red flags':'Looks reasonable';
-  const flagClass=v.level==='low'?'green':(v.level==='high'?'red':'amber');
-  const flagIco=v.level==='high'?'⚠':v.level==='low'?'✓':'•';
-  const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what was extracted.</div>';
-  const n=(v.firedPatterns||[]).length;
+function renderRentalResult(v, f) {
+  const color = v.level === 'high' ? '#b42318' : v.level === 'caution' ? '#c77700' : '#1c8a4f';
+  const headline = v.level === 'high' ? 'High risk' : v.level === 'caution' ? 'Some red flags' : 'Looks reasonable';
+  const flagClass = v.level === 'low' ? 'green' : (v.level === 'high' ? 'red' : 'amber');
+  const flagIco = v.level === 'high' ? '⚠' : v.level === 'low' ? '✓' : '•';
+  const flags = (v.breakdown || []).map(x => '<div class="flag ' + flagClass + '"><span class="ico">' + flagIco + '</span><span>' + x.label + '</span></div>').join('') || '<div class="muted">No specific red flags detected from what was extracted.</div>';
+  const n = (v.firedPatterns || []).length;
   const extracted = f ? `<div class="grid2" style="margin-bottom:14px">
       <div class="stat"><div class="k">Monthly rent</div><div class="val">${money(f.monthlyRent)}</div></div>
-      <div class="stat"><div class="k">Landlord says</div><div class="val" style="font-size:14px">${f.landlordClaim||'—'}</div></div>
+      <div class="stat"><div class="k">Landlord says</div><div class="val" style="font-size:14px">${f.landlordClaim || '—'}</div></div>
     </div>` : '';
-  rResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from the screenshot.</p></div><div class="card">'+extracted+flags+'</div>';
+  rResult.innerHTML = '<div class="verdict" style="background:' + color + '"><p class="v-title">' + headline + '</p><p class="v-score">' + v.scamScore + '% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on ' + n + ' pattern' + (n === 1 ? '' : 's') + ' matched from the screenshots.</p></div><div class="card">' + extracted + flags + '</div>';
 }
 
-// ---- service/contractor: structured form + analyze ----
-const sGo=document.getElementById('sGo'), sErr=document.getElementById('sErr'), sResult=document.getElementById('sResult');
-sGo.onclick=async()=>{
-  sGo.disabled=true; sGo.innerHTML='<span class="spinner"></span>Checking…';
-  sErr.innerHTML=''; sResult.innerHTML='';
-  const licVal=document.getElementById('sLicensed').value;
-  const estVal=document.getElementById('sEstimate').value;
-  const payVal=document.getElementById('sPayBefore').value;
-  const body={
-    descriptionText: document.getElementById('sText').value || '',
-    wasUnsolicited: document.getElementById('sUnsolicited').checked,
-    claimedLicensed: licVal==='' ? null : (licVal==='yes'),
-    providedWrittenEstimate: estVal==='' ? null : (estVal==='yes'),
-    paymentRequestedBeforeWorkStarted: payVal==='' ? null : (payVal==='yes')
-  };
-  try{
-    const res=await fetch('/api/analyze-service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const data=await res.json();
-    if(!res.ok){ throw new Error(data.error||'Check failed'); }
+// ---- service/contractor: multi-screenshot upload OR manual form ----
+const sUploader = makeUploader({ dropId: 'sDrop', fileId: 'sFile', thumbsId: 'sThumbs', goId: 'sGo' });
+document.getElementById('sGo').disabled = false; // manual text is a valid fallback path, don't gate on files
+const sGo = document.getElementById('sGo'), sErr = document.getElementById('sErr'), sResult = document.getElementById('sResult');
+sGo.onclick = async () => {
+  sGo.disabled = true; sGo.innerHTML = '<span class="spinner"></span>Checking…';
+  sErr.innerHTML = ''; sResult.innerHTML = '';
+  const licVal = document.getElementById('sLicensed').value;
+  const estVal = document.getElementById('sEstimate').value;
+  const payVal = document.getElementById('sPayBefore').value;
+  const sFiles = sUploader.getFiles();
+  try {
+    let res;
+    if (sFiles.length) {
+      const fd = new FormData();
+      sFiles.forEach(f => fd.append('screenshots', f));
+      res = await fetch('/api/analyze-service', { method: 'POST', body: fd });
+    } else {
+      const body = {
+        descriptionText: document.getElementById('sText').value || '',
+        wasUnsolicited: document.getElementById('sUnsolicited').checked,
+        claimedLicensed: licVal === '' ? null : (licVal === 'yes'),
+        providedWrittenEstimate: estVal === '' ? null : (estVal === 'yes'),
+        paymentRequestedBeforeWorkStarted: payVal === '' ? null : (payVal === 'yes')
+      };
+      res = await fetch('/api/analyze-service', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    const data = await res.json();
+    if (!res.ok) { throw new Error(data.error || 'Check failed'); }
     renderServiceResult(data.verdict);
-  }catch(e){ sErr.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
-  finally{ sGo.disabled=false; sGo.textContent='Check this offer'; }
+  } catch (e) { sErr.innerHTML = '<div class="err">' + (e.message || e) + '</div>'; }
+  finally { sGo.disabled = false; sGo.textContent = 'Check this offer'; }
 };
-function renderServiceResult(v){
-  const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
-  const headline=v.level==='high'?'High risk':v.level==='caution'?'Some red flags':'Looks reasonable';
-  const flagClass=v.level==='low'?'green':(v.level==='high'?'red':'amber');
-  const flagIco=v.level==='high'?'⚠':v.level==='low'?'✓':'•';
-  const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what you entered.</div>';
-  const n=(v.firedPatterns||[]).length;
-  sResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from what you told us.</p></div><div class="card">'+flags+'</div>';
+function renderServiceResult(v) {
+  const color = v.level === 'high' ? '#b42318' : v.level === 'caution' ? '#c77700' : '#1c8a4f';
+  const headline = v.level === 'high' ? 'High risk' : v.level === 'caution' ? 'Some red flags' : 'Looks reasonable';
+  const flagClass = v.level === 'low' ? 'green' : (v.level === 'high' ? 'red' : 'amber');
+  const flagIco = v.level === 'high' ? '⚠' : v.level === 'low' ? '✓' : '•';
+  const flags = (v.breakdown || []).map(x => '<div class="flag ' + flagClass + '"><span class="ico">' + flagIco + '</span><span>' + x.label + '</span></div>').join('') || '<div class="muted">No specific red flags detected from what you entered.</div>';
+  const n = (v.firedPatterns || []).length;
+  sResult.innerHTML = '<div class="verdict" style="background:' + color + '"><p class="v-title">' + headline + '</p><p class="v-score">' + v.scamScore + '% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on ' + n + ' pattern' + (n === 1 ? '' : 's') + ' matched.</p></div><div class="card">' + flags + '</div>';
 }
 </script>
 </body>

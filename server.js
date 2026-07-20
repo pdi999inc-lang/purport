@@ -9,24 +9,31 @@ import { analyze } from "./lib/analyze.js";
 import { analyzeRental } from "./lib/analyzeRental.js";
 import { analyzeRentalScreenshot } from "./lib/visionRental.js";
 import { analyzeService } from "./lib/analyzeService.js";
+import { analyzeServiceScreenshot } from "./lib/visionService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const upload = multer({ limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB screenshots
+const upload = multer({ limits: { fileSize: 12 * 1024 * 1024, files: 5 } }); // up to 5 screenshots, 12MB each
 
 app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-// Main pipeline: screenshot -> vision -> prices -> verdict
-app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
+function filesToImages(files) {
+  return (files || []).map(f => ({
+    base64: f.buffer.toString("base64"),
+    mediaType: f.mimetype || "image/png"
+  }));
+}
+
+// Main pipeline: screenshot(s) -> vision -> prices -> verdict
+app.post("/api/analyze", upload.array("screenshots", 5), async (req, res) => {
   try {
     let fields;
-    if (req.file) {
-      const base64 = req.file.buffer.toString("base64");
-      const mediaType = req.file.mimetype || "image/png";
-      fields = await analyzeScreenshot({ base64, mediaType });
+    const images = filesToImages(req.files);
+    if (images.length) {
+      fields = await analyzeScreenshot({ images });
     } else if (req.body && req.body.product) {
       // Fallback: manual entry (no screenshot)
       fields = {
@@ -38,11 +45,11 @@ app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
         listingText: req.body.message || ""
       };
     } else {
-      return res.status(400).json({ error: "Upload a screenshot or provide a product name." });
+      return res.status(400).json({ error: "Upload at least one screenshot or provide a product name." });
     }
 
     if (!fields.product) {
-      return res.status(422).json({ error: "Couldn't identify a product in that screenshot. Try a clearer image or type the model.", fields });
+      return res.status(422).json({ error: "Couldn't identify a product in those screenshots. Try clearer images or type the model.", fields });
     }
 
     // Low-confidence ID: return fields for user confirmation, do NOT show a verdict yet.
@@ -72,16 +79,15 @@ app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
   }
 });
 
-// Rental pipeline: screenshot (preferred) -> vision -> verdict, OR manual
+// Rental pipeline: screenshot(s) (preferred) -> vision -> verdict, OR manual
 // structured fields as a fallback path for anyone who wants to supplement
-// / override what the screenshot extraction found.
-app.post("/api/analyze-rental", upload.single("screenshot"), async (req, res) => {
+// / override what the screenshots extraction found.
+app.post("/api/analyze-rental", upload.array("screenshots", 5), async (req, res) => {
   try {
     let fields;
-    if (req.file) {
-      const base64 = req.file.buffer.toString("base64");
-      const mediaType = req.file.mimetype || "image/png";
-      fields = await analyzeRentalScreenshot({ base64, mediaType });
+    const images = filesToImages(req.files);
+    if (images.length) {
+      fields = await analyzeRentalScreenshot({ images });
     } else {
       const body = req.body || {};
       fields = {
@@ -96,7 +102,7 @@ app.post("/api/analyze-rental", upload.single("screenshot"), async (req, res) =>
     }
 
     if (!fields.monthlyRent && !fields.listingText) {
-      return res.status(422).json({ error: "Couldn't find a rent amount or listing text in that screenshot. Try a clearer image.", fields });
+      return res.status(422).json({ error: "Couldn't find a rent amount or listing text in those screenshots. Try clearer images.", fields });
     }
 
     const verdict = analyzeRental(fields);
@@ -107,14 +113,31 @@ app.post("/api/analyze-rental", upload.single("screenshot"), async (req, res) =>
   }
 });
 
-app.post("/api/analyze-service", (req, res) => {
+// Service/contractor pipeline: screenshot(s) (preferred) -> vision -> verdict,
+// OR manual structured fields as a fallback path.
+app.post("/api/analyze-service", upload.array("screenshots", 5), async (req, res) => {
   try {
-    const body = req.body || {};
-    if (!body.descriptionText) {
-      return res.status(400).json({ error: "Describe the offer or paste their message." });
+    let fields;
+    const images = filesToImages(req.files);
+    if (images.length) {
+      fields = await analyzeServiceScreenshot({ images });
+    } else {
+      const body = req.body || {};
+      fields = {
+        descriptionText: body.descriptionText || "",
+        wasUnsolicited: body.wasUnsolicited === "true" || body.wasUnsolicited === true,
+        claimedLicensed: body.claimedLicensed === "true" ? true : body.claimedLicensed === "false" ? false : null,
+        providedWrittenEstimate: body.providedWrittenEstimate === "true" ? true : body.providedWrittenEstimate === "false" ? false : null,
+        paymentRequestedBeforeWorkStarted: body.paymentRequestedBeforeWorkStarted === "true" ? true : body.paymentRequestedBeforeWorkStarted === "false" ? false : null
+      };
     }
-    const verdict = analyzeService(body);
-    res.json({ verdict });
+
+    if (!fields.descriptionText) {
+      return res.status(422).json({ error: "Couldn't find any readable pitch/message text in those screenshots. Try clearer images or paste the text.", fields });
+    }
+
+    const verdict = analyzeService(fields);
+    res.json({ fields, verdict });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Service analysis failed" });
