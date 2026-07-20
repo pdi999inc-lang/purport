@@ -18,7 +18,7 @@ h1{font-size:21px;margin:0;letter-spacing:-.3px;}
 .drop:hover,.drop.over{border-color:#7c4dff;background:#faf9ff;}
 .drop p{margin:6px 0 0;color:#6b7480;font-size:13px;}
 .drop strong{color:#5b3df5;}
-#preview{max-width:100%;border-radius:10px;margin-top:12px;display:none;}
+#preview,.preview-img{max-width:100%;border-radius:10px;margin-top:12px;display:none;}
 button.analyze{width:100%;padding:13px;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#5b3df5,#7c4dff);color:#fff;margin-top:14px;}
 button.analyze:disabled{opacity:.55;cursor:default;}
 .muted{color:#6b7480;font-size:12.5px;}
@@ -84,38 +84,22 @@ button.analyze:disabled{opacity:.55;cursor:default;}
     <div class="card" id="platformCard"></div>
   </div>
 
-  <!-- STEP 2.5: rental structured fields (listing + rental platform only) -->
+  <!-- STEP 2.5: rental — screenshot upload, same pattern as marketplace upload -->
   <div class="step" id="step-rental">
     <button class="backlink" onclick="goToStep('platform')">← Back</button>
     <div class="card">
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Monthly rent ($)</label>
-      <input type="number" id="rRent" placeholder="e.g. 1200" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Typical rent for similar places nearby (optional)</label>
-      <input type="number" id="rMarket" placeholder="Leave blank if you're not sure" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Paste the listing text or their messages</label>
-      <textarea id="rText" rows="5" placeholder="Paste as much as you can — this is the biggest signal we use." style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;font-family:inherit;"></textarea>
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">How do they describe themselves?</label>
-      <input type="text" id="rClaim" placeholder="e.g. owner, property manager, agent" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Have they offered a video call or in-person tour?</label>
-      <select id="rTour" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
-        <option value="">Haven't asked yet</option>
-        <option value="yes">Yes</option>
-        <option value="no">No / they refused</option>
-      </select>
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Are they asking for payment before you've seen the place?</label>
-      <select id="rPayBefore" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
-        <option value="">Not sure / haven't discussed payment</option>
-        <option value="yes">Yes</option>
-        <option value="no">No</option>
-      </select>
-      <label style="margin-top:10px;display:flex;align-items:center;gap:7px;font-weight:400;font-size:13px;">
-        <input type="checkbox" id="rRepeat" style="width:auto;"> They repeated the same question without answering mine
-      </label>
-      <button class="analyze" id="rGo" style="margin-top:14px">Check this rental</button>
+      <div class="drop" id="rDrop">
+        <div style="font-size:26px">📷</div>
+        <p><strong>Tap to upload</strong> or drop a screenshot here</p>
+        <p class="muted">The rental listing, or a message from the landlord/property manager</p>
+        <input type="file" id="rFile" accept="image/*" hidden>
+      </div>
+      <img id="rPreview" class="preview-img" alt="preview">
+      <button class="analyze" id="rGo" disabled>Check this rental</button>
       <div id="rErr"></div>
     </div>
     <div id="rResult"></div>
-    <p class="disc">This checks structured details you enter, not a screenshot. Based on known rental-scam patterns; not a guarantee of legitimacy or fraud. Always verify ownership and see the property before paying anything.</p>
+    <p class="disc">Details are read automatically from your screenshot — extraction may be imperfect, especially for signals that only come up in an ongoing conversation (e.g. whether a tour was offered). Based on known rental-scam patterns; not a guarantee of legitimacy or fraud. Always verify ownership and see the property before paying anything.</p>
   </div>
 
   <!-- STEP 2.6: service/contractor structured fields -->
@@ -228,12 +212,14 @@ function choosePlatform(label, hint) {
   document.getElementById('dropHint').textContent = "Include the " + hint + ".";
   document.getElementById('tagline').textContent = "Add a screenshot to check.";
   if (selectedCategory === 'listing' && label === 'Zillow / rental site') {
-    document.getElementById('tagline').textContent = "Tell us about the rental.";
+    document.getElementById('tagline').textContent = "Add a screenshot of the rental listing.";
     goToStep('rental');
     return;
   }
   goToStep('upload');
 }
+
+function money(n){ return n==null?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}); }
 
 // ---- existing upload/analyze pipeline (unchanged, now tags category+platform) ----
 let fileData = null;
@@ -251,7 +237,6 @@ function setFile(f){
   preview.src=url; preview.style.display='block'; go.disabled=false;
   errEl.innerHTML=''; result.innerHTML=''; confirmBox.innerHTML='';
 }
-function money(n){ return n==null?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}); }
 async function analyze(extra){
   go.disabled=true; go.innerHTML='<span class="spinner"></span>Reading screenshot & pricing…';
   errEl.innerHTML='';
@@ -310,39 +295,50 @@ function renderResult(d){
     </div>`;
 }
 
-const rGo=document.getElementById('rGo'), rErr=document.getElementById('rErr'), rResult=document.getElementById('rResult');
-rGo.onclick=async()=>{
-  rGo.disabled=true; rGo.innerHTML='<span class="spinner"></span>Checking…';
+// ---- rental: screenshot upload + analyze ----
+let rFileData = null;
+const rDrop=document.getElementById('rDrop'), rFileEl=document.getElementById('rFile'),
+      rPreview=document.getElementById('rPreview'), rGo=document.getElementById('rGo'),
+      rErr=document.getElementById('rErr'), rResult=document.getElementById('rResult');
+rDrop.onclick=()=>rFileEl.click();
+['dragover','dragenter'].forEach(e=>rDrop.addEventListener(e,ev=>{ev.preventDefault();rDrop.classList.add('over');}));
+['dragleave','drop'].forEach(e=>rDrop.addEventListener(e,ev=>{ev.preventDefault();rDrop.classList.remove('over');}));
+rDrop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) setRFile(ev.dataTransfer.files[0]); });
+rFileEl.onchange=()=>{ if(rFileEl.files[0]) setRFile(rFileEl.files[0]); };
+function setRFile(f){
+  rFileData=f; const url=URL.createObjectURL(f);
+  rPreview.src=url; rPreview.style.display='block'; rGo.disabled=false;
   rErr.innerHTML=''; rResult.innerHTML='';
-  const tourVal=document.getElementById('rTour').value;
-  const payVal=document.getElementById('rPayBefore').value;
-  const body={
-    monthlyRent: document.getElementById('rRent').value ? Number(document.getElementById('rRent').value) : null,
-    marketRentMedian: document.getElementById('rMarket').value ? Number(document.getElementById('rMarket').value) : null,
-    listingText: document.getElementById('rText').value || '',
-    landlordClaim: document.getElementById('rClaim').value || '',
-    contactOfferedVideoOrInPerson: tourVal==='' ? null : (tourVal==='yes'),
-    paymentRequestedBeforeTour: payVal==='' ? null : (payVal==='yes'),
-    scriptedRepeatQuestion: document.getElementById('rRepeat').checked
-  };
+}
+rGo.onclick=async()=>{
+  if(!rFileData) return;
+  rGo.disabled=true; rGo.innerHTML='<span class="spinner"></span>Reading screenshot…';
+  rErr.innerHTML=''; rResult.innerHTML='';
   try{
-    const res=await fetch('/api/analyze-rental',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const fd=new FormData();
+    fd.append('screenshot', rFileData);
+    const res=await fetch('/api/analyze-rental',{method:'POST',body:fd});
     const data=await res.json();
     if(!res.ok){ throw new Error(data.error||'Check failed'); }
-    renderRentalResult(data.verdict);
+    renderRentalResult(data.verdict, data.fields);
   }catch(e){ rErr.innerHTML='<div class="err">'+(e.message||e)+'</div>'; }
   finally{ rGo.disabled=false; rGo.textContent='Check this rental'; }
 };
-function renderRentalResult(v){
+function renderRentalResult(v, f){
   const color=v.level==='high'?'#b42318':v.level==='caution'?'#c77700':'#1c8a4f';
   const headline=v.level==='high'?'High risk':v.level==='caution'?'Some red flags':'Looks reasonable';
   const flagClass=v.level==='low'?'green':(v.level==='high'?'red':'amber');
   const flagIco=v.level==='high'?'⚠':v.level==='low'?'✓':'•';
-  const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what you entered.</div>';
+  const flags=(v.breakdown||[]).map(x=>'<div class="flag '+flagClass+'"><span class="ico">'+flagIco+'</span><span>'+x.label+'</span></div>').join('') || '<div class="muted">No specific red flags detected from what was extracted.</div>';
   const n=(v.firedPatterns||[]).length;
-  rResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from what you told us.</p></div><div class="card">'+flags+'</div>';
+  const extracted = f ? `<div class="grid2" style="margin-bottom:14px">
+      <div class="stat"><div class="k">Monthly rent</div><div class="val">${money(f.monthlyRent)}</div></div>
+      <div class="stat"><div class="k">Landlord says</div><div class="val" style="font-size:14px">${f.landlordClaim||'—'}</div></div>
+    </div>` : '';
+  rResult.innerHTML='<div class="verdict" style="background:'+color+'"><p class="v-title">'+headline+'</p><p class="v-score">'+v.scamScore+'% <span style="font-size:14px;font-weight:600;">risk score</span></p><p class="v-rec">Based on '+n+' pattern'+(n===1?'':'s')+' matched from the screenshot.</p></div><div class="card">'+extracted+flags+'</div>';
 }
 
+// ---- service/contractor: structured form + analyze ----
 const sGo=document.getElementById('sGo'), sErr=document.getElementById('sErr'), sResult=document.getElementById('sResult');
 sGo.onclick=async()=>{
   sGo.disabled=true; sGo.innerHTML='<span class="spinner"></span>Checking…';
