@@ -7,7 +7,9 @@ import { analyzeScreenshot } from "./lib/vision.js";
 import { getPrices } from "./lib/pricing.js";
 import { analyze } from "./lib/analyze.js";
 import { analyzeRental } from "./lib/analyzeRental.js";
+import { analyzeRentalScreenshot } from "./lib/visionRental.js";
 import { analyzeService } from "./lib/analyzeService.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const upload = multer({ limits: { fileSize: 12 * 1024 * 1024 } }); // 12MB screenshots
@@ -70,19 +72,41 @@ app.post("/api/analyze", upload.single("screenshot"), async (req, res) => {
   }
 });
 
-app.post("/api/analyze-rental", (req, res) => {
+// Rental pipeline: screenshot (preferred) -> vision -> verdict, OR manual
+// structured fields as a fallback path for anyone who wants to supplement
+// / override what the screenshot extraction found.
+app.post("/api/analyze-rental", upload.single("screenshot"), async (req, res) => {
   try {
-    const body = req.body || {};
-    if (!body.monthlyRent && !body.listingText) {
-      return res.status(400).json({ error: "Provide at least monthlyRent or listingText." });
+    let fields;
+    if (req.file) {
+      const base64 = req.file.buffer.toString("base64");
+      const mediaType = req.file.mimetype || "image/png";
+      fields = await analyzeRentalScreenshot({ base64, mediaType });
+    } else {
+      const body = req.body || {};
+      fields = {
+        monthlyRent: body.monthlyRent != null && body.monthlyRent !== "" ? Number(body.monthlyRent) : null,
+        marketRentMedian: body.marketRentMedian != null && body.marketRentMedian !== "" ? Number(body.marketRentMedian) : null,
+        listingText: body.listingText || "",
+        landlordClaim: body.landlordClaim || "",
+        contactOfferedVideoOrInPerson: body.contactOfferedVideoOrInPerson === "true" ? true : body.contactOfferedVideoOrInPerson === "false" ? false : null,
+        paymentRequestedBeforeTour: body.paymentRequestedBeforeTour === "true" ? true : body.paymentRequestedBeforeTour === "false" ? false : null,
+        scriptedRepeatQuestion: body.scriptedRepeatQuestion === "true" || body.scriptedRepeatQuestion === true
+      };
     }
-    const verdict = analyzeRental(body);
-    res.json({ verdict });
+
+    if (!fields.monthlyRent && !fields.listingText) {
+      return res.status(422).json({ error: "Couldn't find a rent amount or listing text in that screenshot. Try a clearer image.", fields });
+    }
+
+    const verdict = analyzeRental(fields);
+    res.json({ fields, verdict });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Rental analysis failed" });
   }
 });
+
 app.post("/api/analyze-service", (req, res) => {
   try {
     const body = req.body || {};
@@ -96,5 +120,6 @@ app.post("/api/analyze-service", (req, res) => {
     res.status(500).json({ error: err.message || "Service analysis failed" });
   }
 });
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`PurPort listening on :${port}`));
