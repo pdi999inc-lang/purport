@@ -130,17 +130,19 @@ button.analyze:disabled{opacity:.55;cursor:default;}
         <option value="yes">Yes</option>
         <option value="no">No / they deflected</option>
       </select>
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Did they give you a written estimate?</label>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Did they provide a formal estimate and warranty?</label>
       <select id="sEstimate" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
         <option value="">Not yet</option>
         <option value="yes">Yes</option>
         <option value="no">No, verbal only</option>
       </select>
-      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Are they asking for full payment before work starts?</label>
+      <label style="font-size:12.5px;font-weight:600;display:block;margin:8px 0 4px;">Have they asked for money before starting work?</label>
       <select id="sPayBefore" style="width:100%;padding:9px 10px;border:1px solid #e2c98f;border-radius:8px;font-size:14px;">
         <option value="">Not discussed yet</option>
-        <option value="yes">Yes</option>
-        <option value="no">No, milestone/completion-based</option>
+        <option value="none">No - milestone / completion-based</option>
+        <option value="deposit">A partial deposit, rest on progress/completion</option>
+        <option value="materials">Money for materials upfront</option>
+        <option value="full">Full payment upfront, before any work</option>
       </select>
       <button class="analyze" id="sGo" style="margin-top:14px">Check this offer</button>
       <div id="sErr"></div>
@@ -393,7 +395,8 @@ sGo.onclick = async () => {
         wasUnsolicited: document.getElementById('sUnsolicited').checked,
         claimedLicensed: licVal === '' ? null : (licVal === 'yes'),
         providedWrittenEstimate: estVal === '' ? null : (estVal === 'yes'),
-        paymentRequestedBeforeWorkStarted: payVal === '' ? null : (payVal === 'yes')
+        paymentStructure: payVal === '' ? null : payVal,
+        paymentRequestedBeforeWorkStarted: payVal === 'full'
       };
       res = await fetch('/api/analyze-service', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     }
