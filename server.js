@@ -10,6 +10,7 @@ import { analyzeRental } from "./lib/analyzeRental.js";
 import { analyzeRentalScreenshot } from "./lib/visionRental.js";
 import { analyzeService } from "./lib/analyzeService.js";
 import { analyzeServiceScreenshot } from "./lib/visionService.js";
+import { toClientError } from "./lib/httpRetry.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +26,17 @@ function filesToImages(files) {
     base64: f.buffer.toString("base64"),
     mediaType: f.mimetype || "image/png"
   }));
+}
+
+// PATCHED 2026-07-22 (PA-05): emit a machine-readable {transient, code} shape
+// instead of raw upstream text. Full detail is logged, never rendered.
+function sendError(res, err, fallback) {
+  console.error("[purport]", fallback, { status: err?.status, transient: err?.transient, attempts: err?.attempts, body: err?.body, message: err?.message });
+  if (err && typeof err.transient === "boolean") {
+    const c = toClientError(err);
+    return res.status(c.http).json(c.body);
+  }
+  return res.status(500).json({ error: fallback, transient: false, code: "internal_error" });
 }
 
 // Main pipeline: screenshot(s) -> vision -> prices -> verdict
@@ -74,8 +86,7 @@ app.post("/api/analyze", upload.array("screenshots", 5), async (req, res) => {
 
     res.json({ fields, prices, verdict });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Analysis failed" });
+    sendError(res, err, "Analysis failed");
   }
 });
 
@@ -108,8 +119,7 @@ app.post("/api/analyze-rental", upload.array("screenshots", 5), async (req, res)
     const verdict = analyzeRental(fields);
     res.json({ fields, verdict });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Rental analysis failed" });
+    sendError(res, err, "Rental analysis failed");
   }
 });
 
@@ -139,8 +149,7 @@ app.post("/api/analyze-service", upload.array("screenshots", 5), async (req, res
     const verdict = analyzeService(fields);
     res.json({ fields, verdict });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Service analysis failed" });
+    sendError(res, err, "Service analysis failed");
   }
 });
 
